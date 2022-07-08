@@ -1,7 +1,7 @@
 const CLIENT_ID = "2f8a8ec7-3cfd-4c1f-90a7-ed054d7cd245";
 const API_KEY = "ZdxKILvlz1JmJg2ZTpJddgXlzin68ccVdxuL9NUw";
 const API_HOST = "https://api.decoderize.cloud/v1";
-const imageName = "01.jpeg";
+const imageName = "25.jpeg";
 const imageURL = `/home/hanuman/Desktop/cards-only-cover-pages/${imageName}`;
 
 const fs = require("fs");
@@ -12,15 +12,12 @@ const imageToBase64 = (fileURI) => {
     return Buffer.from(bitmap).toString('base64');
 };
 
-
 const OCRStatuses = {
-    NoUiidProvided: 0,
     Waiting: 1,
     Ready: 2,
     Unsuported: 3,
     Failed: 4
 };
-
 
 const OCRdecoderize = {
     sendImage: async (imageURL) => {
@@ -40,7 +37,7 @@ const OCRdecoderize = {
 
             if (response.data.OperationUuid)
                 return response.data.OperationUuid;
-            
+
             return null;
         }
         catch (err) {
@@ -49,11 +46,7 @@ const OCRdecoderize = {
         }
     },
     checkResults: async (OperationUuid) => {
-        if (!OperationUuid)
-            return {
-                data: null,
-                status: OCRStatuses.NoUiidProvided
-            };
+        const ocrFailed = { data: null, status: OCRStatuses.Failed };
 
         try {
             const response = await axios({
@@ -68,27 +61,26 @@ const OCRdecoderize = {
                 }
             });
 
-            //console.log(response)
-            //console.log(response.data)
+            if (!response.data)
+                return ocrFailed;
 
-            if (response.data.OperationStatus === "ProcessingFinished" && response.data.dataRecognitionResults.message === "Unsupported carrier or document type")
+            const data = response.data
+
+            if (data.OperationStatus === "ProcessingFinished" && data.RecognitionResults && data.RecognitionResults.message && data.RecognitionResults.message === "Unsupported carrier or document type")
                 return { status: OCRStatuses.Unsuported, data: null }
 
-            if (response.data.OperationStatus === "ProcessingFinished")
-                return { status: OCRStatuses.Ready, data: response.data.RecognitionResults }
+            if (data.OperationStatus === "ProcessingFinished")
+                return { status: OCRStatuses.Ready, data: data.RecognitionResults }
 
-            if (response.data.OperationStatus === "OpticalCharacterRecognitionInProgress")
+            if (data.OperationStatus === "OpticalCharacterRecognitionInProgress")
                 return { status: OCRStatuses.Waiting, data: null }
 
-            return { status: OCRStatuses.Failed, data: null }
+            return ocrFailed
 
         }
         catch (err) {
             console.log(err);
-            return {
-                data: null,
-                status: OCRStatuses.Failed
-            };
+            return ocrFailed;
         }
     }
 };
@@ -97,7 +89,7 @@ const OCRdecoderize = {
 (async () => {
     const uuid = await OCRdecoderize.sendImage(imageURL);
     if (!uuid) {
-        console.log("no uuid provided")
+        console.log("no uuid provided", uuid)
         return;
     };
 
